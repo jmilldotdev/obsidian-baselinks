@@ -4,7 +4,8 @@ import {
 	PluginSettingTab,
 	Setting,
 	TFile,
-	WorkspaceLeaf
+	WorkspaceLeaf,
+	OpenViewState
 } from 'obsidian';
 
 interface BaselinksSettings {
@@ -182,7 +183,7 @@ export default class BaselinksPlugin extends Plugin {
 					} else {
 						// Create a horizontal split (which stacks vertically in Obsidian)
 						// Obsidian's naming is counterintuitive: 'horizontal' = stacked vertically
-						leaf = this.app.workspace.createLeafBySplit(parent as any, 'horizontal' as any);
+						leaf = this.app.workspace.createLeafBySplit(parent as WorkspaceLeaf, 'horizontal');
 						console.log('DBGCLEAN9X7: created horizontal split leaf (stacked)');
 					}
 				}
@@ -198,11 +199,11 @@ export default class BaselinksPlugin extends Plugin {
 				// Open the file with proper state for subpath
 				console.log('DBGCLEAN9X7: opening file:', file.path, 'with subpath:', subpath);
 
-				const openState: any = {};
+				const openState: OpenViewState = {};
 
 				if (subpath) {
-					// Pass subpath via eState
-					openState.eState = { subpath: subpath };
+					// For base files, try passing view name in state
+					openState.state = { view: subpath };
 				}
 
 				console.log('DBGCLEAN9X7: openFile with state:', openState);
