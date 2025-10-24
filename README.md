@@ -1,94 +1,92 @@
-# Obsidian Sample Plugin
+# Baselinks for Obsidian
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+Automatically display Obsidian base views in your right sidebar based on the current note's frontmatter properties.
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+## Features
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open Sample Modal" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+- **Automatic base views**: Displays base files in the right sidebar based on frontmatter properties
+- **View navigation**: Opens to specific views within base files using the `#` syntax
+- **Multiple bases**: Stack multiple base views vertically in the sidebar
+- **Default bases**: Configure fallback bases to show when no property is found
+- **Focus preservation**: Keeps focus on your editor when switching notes
 
-## First time developing plugins?
+## Usage
 
-Quick starting guide for new plugin devs:
+### Basic Setup
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+Add a `baselinks` property to any note's frontmatter:
 
-## Releasing new releases
-
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
-
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
-
-## Adding your plugin to the community plugin list
-
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
-
-## How to use
-
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
-
-## Manually installing the plugin
-
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
-
-## Improve code quality with eslint (optional)
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- To use eslint with this project, make sure to install eslint from terminal:
-  - `npm install -g eslint`
-- To use eslint to analyze this project use this command:
-  - `eslint main.ts`
-  - eslint will then create a report with suggestions for code improvement by file and line number.
-- If your source code is in a folder, such as `src`, you can use eslint with this command to analyze all files in that folder:
-  - `eslint ./src/`
-
-## Funding URL
-
-You can include funding URLs where people who use your plugin can financially support it.
-
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
-
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
+```yaml
+---
+baselinks:
+  - "[[tasks.base#In-Progress]]"
+  - "[[projects.base#Active]]"
+---
 ```
 
-If you have multiple URLs, you can also do:
+When you open that note, the plugin will automatically:
+1. Open the specified base files in the right sidebar
+2. Navigate to the specified views (e.g., "In-Progress", "Active")
+3. Stack them vertically for easy reference
 
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
+### Link Format
+
+Base links follow this format:
+- `[[filename.base]]` - Opens the base with its default view
+- `[[filename.base#ViewName]]` - Opens the base to a specific view
+
+### Single Baselink
+
+For a single baselink, you can use either format:
+
+```yaml
+---
+baselinks: "[[all-notes.base]]"
+---
 ```
 
-## API Documentation
+or
 
-See https://github.com/obsidianmd/obsidian-api
+```yaml
+---
+baselinks:
+  - "[[all-notes.base]]"
+---
+```
+
+## Settings
+
+### Baselink Property Name
+**Default:** `baselinks`
+
+Customize the frontmatter property name the plugin reads. For example, change it to `sidebar` or `views`.
+
+### Default Baselinks
+Specify base links to display when a note has no baselinks property. Add one link per line:
+
+```
+[[all-notes.base]]
+[[tasks.base#Today]]
+```
+
+These default bases will appear in the sidebar for any note without its own baselinks property.
+
+## Installation
+
+### Manual Installation
+
+1. Download `main.js`, `manifest.json`, and `styles.css`
+2. Copy them to `VaultFolder/.obsidian/plugins/obsidian-baselinks/`
+3. Reload Obsidian
+4. Enable the plugin in Settings → Community Plugins
+
+### Development
+
+```bash
+npm install
+npm run dev
+```
+
+## License
+
+MIT
