@@ -54,6 +54,12 @@ export default class BaselinksPlugin extends Plugin {
 		);
 
 		this.registerEvent(
+			this.app.workspace.on('layout-change', () => {
+				this.scheduleUpdate();
+			})
+		);
+
+		this.registerEvent(
 			this.app.metadataCache.on('changed', () => {
 				this.scheduleUpdate();
 			})
@@ -128,7 +134,6 @@ export default class BaselinksPlugin extends Plugin {
 				baselinks = this.settings.defaultBaselinks;
 			}
 
-
 			// Check if baselinks actually changed
 			if (this.arraysEqual(this.currentBaselinks, baselinks)) {
 				return;
@@ -143,6 +148,10 @@ export default class BaselinksPlugin extends Plugin {
 			if (baselinks.length === 0) {
 				return;
 			}
+
+			// Check if right sidebar is collapsed
+			const rightSplit = this.app.workspace.rightSplit;
+			const sidebarCollapsed = rightSplit && rightSplit.collapsed;
 
 			// Get or create leaves in the right sidebar
 			let previousLeaf: WorkspaceLeaf | null = null;
@@ -204,8 +213,8 @@ export default class BaselinksPlugin extends Plugin {
 
 				await leaf.openFile(file, openState);
 
-				// Reveal the first leaf (but don't focus it)
-				if (i === 0) {
+				// Reveal the first leaf only if sidebar is open
+				if (i === 0 && !sidebarCollapsed) {
 					this.app.workspace.revealLeaf(leaf);
 				}
 			}
