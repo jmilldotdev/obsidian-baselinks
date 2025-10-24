@@ -5,6 +5,6 @@
 	"minAppVersion": "0.15.0",
 	"description": "Display base view links from note properties in a right sidebar panel",
 	"author": "jmill",
-	"authorUrl": "",
+	"authorUrl": "https://jmill.dev",
 	"isDesktopOnly": false
 }

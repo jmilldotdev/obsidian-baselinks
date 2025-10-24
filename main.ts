@@ -5,7 +5,8 @@ import {
 	Setting,
 	TFile,
 	WorkspaceLeaf,
-	OpenViewState
+	OpenViewState,
+	ItemView
 } from 'obsidian';
 
 interface BaselinksSettings {
@@ -30,15 +31,28 @@ export default class BaselinksPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-		// Register event handlers with proper cleanup
+		// Hook into file-open to see what state is used when clicking links
 		this.registerEvent(
-			this.app.workspace.on('active-leaf-change', () => {
-				this.scheduleUpdate();
+			this.app.workspace.on('file-open', (file) => {
+				if (file && file.extension === 'base') {
+					setTimeout(() => {
+						const activeLeaf = this.app.workspace.getActiveViewOfType(ItemView)?.leaf;
+						if (activeLeaf) {
+							const state = (activeLeaf as any).getViewState();
+							const view = (activeLeaf as any).view;
+							console.log('DBGCLEAN9X7: file-open event for base file:', file.path);
+							console.log('DBGCLEAN9X7: leaf view state:', JSON.stringify(state, null, 2));
+							console.log('DBGCLEAN9X7: leaf.view:', view);
+							console.log('DBGCLEAN9X7: leaf.view.getState():', view?.getState ? view.getState() : 'no getState');
+						}
+					}, 100);
+				}
 			})
 		);
 
+		// Register event handlers with proper cleanup
 		this.registerEvent(
-			this.app.workspace.on('file-open', () => {
+			this.app.workspace.on('active-leaf-change', () => {
 				this.scheduleUpdate();
 			})
 		);
@@ -202,8 +216,8 @@ export default class BaselinksPlugin extends Plugin {
 				const openState: OpenViewState = {};
 
 				if (subpath) {
-					// For base files, try passing view name in state
-					openState.state = { view: subpath };
+					// For base files, pass viewName in state
+					openState.state = { viewName: subpath };
 				}
 
 				console.log('DBGCLEAN9X7: openFile with state:', openState);
