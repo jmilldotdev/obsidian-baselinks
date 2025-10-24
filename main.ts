@@ -69,6 +69,13 @@ export default class BaselinksPlugin extends Plugin {
 			return;
 		}
 
+		// Check if the active leaf is one of our managed leaves - if so, ignore
+		const activeLeaf = this.app.workspace.activeLeaf;
+		if (activeLeaf && this.managedLeaves.includes(activeLeaf)) {
+			console.log('DBGCLEAN9X7: skipping scheduleUpdate - active leaf is a managed baselink leaf');
+			return;
+		}
+
 		this.updateScheduled = true;
 		setTimeout(() => {
 			this.updateScheduled = false;
@@ -173,10 +180,10 @@ export default class BaselinksPlugin extends Plugin {
 						console.log('DBGCLEAN9X7: no parent, using getRightLeaf');
 						leaf = this.app.workspace.getRightLeaf(false);
 					} else {
-						// Create a vertical split (stacked) by passing 'vertical' direction
-						// We need to cast parent to any because TypeScript doesn't know the exact type
-						leaf = this.app.workspace.createLeafBySplit(parent as any, 'vertical' as any);
-						console.log('DBGCLEAN9X7: created vertical split leaf');
+						// Create a horizontal split (which stacks vertically in Obsidian)
+						// Obsidian's naming is counterintuitive: 'horizontal' = stacked vertically
+						leaf = this.app.workspace.createLeafBySplit(parent as any, 'horizontal' as any);
+						console.log('DBGCLEAN9X7: created horizontal split leaf (stacked)');
 					}
 				}
 
@@ -188,28 +195,19 @@ export default class BaselinksPlugin extends Plugin {
 				this.managedLeaves.push(leaf);
 				previousLeaf = leaf;
 
-				// Open the file
-				console.log('DBGCLEAN9X7: opening file:', file.path, 'subpath:', subpath);
+				// Open the file with proper state for subpath
+				console.log('DBGCLEAN9X7: opening file:', file.path, 'with subpath:', subpath);
+
+				const openState: any = {};
 
 				if (subpath) {
-					// For base files, try to set the active view after opening
-					await leaf.openFile(file);
-
-					// After opening, try to set the subpath via the view state
-					const view = leaf.view;
-					console.log('DBGCLEAN9X7: view after opening:', view);
-
-					if (view && 'setState' in view && typeof view.setState === 'function') {
-						console.log('DBGCLEAN9X7: trying to set view state with subpath:', subpath);
-						try {
-							await (view as any).setState({ subpath: subpath }, {});
-						} catch (e) {
-							console.log('DBGCLEAN9X7: setState failed:', e);
-						}
-					}
-				} else {
-					await leaf.openFile(file);
+					// Pass subpath via eState
+					openState.eState = { subpath: subpath };
 				}
+
+				console.log('DBGCLEAN9X7: openFile with state:', openState);
+				await leaf.openFile(file, openState);
+				console.log('DBGCLEAN9X7: openFile completed');
 
 				// Reveal the first leaf
 				if (i === 0) {
@@ -217,7 +215,11 @@ export default class BaselinksPlugin extends Plugin {
 				}
 			}
 		} finally {
-			this.isUpdating = false;
+			// Add a cooldown period after updating to let all async operations settle
+			setTimeout(() => {
+				this.isUpdating = false;
+				console.log('DBGCLEAN9X7: isUpdating set to false after cooldown');
+			}, 200);
 		}
 	}
 
