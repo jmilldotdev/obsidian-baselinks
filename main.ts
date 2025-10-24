@@ -24,7 +24,7 @@ const BASELINKS_LEAF_ID = 'baselinks-managed-leaf';
 export default class BaselinksPlugin extends Plugin {
 	settings: BaselinksSettings;
 	private managedLeaves: WorkspaceLeaf[] = [];
-	private updateScheduled = false;
+	private updateTimeout: NodeJS.Timeout | null = null;
 	private isUpdating = false;
 	private currentBaselinks: string[] = [];
 
@@ -40,10 +40,6 @@ export default class BaselinksPlugin extends Plugin {
 						if (activeLeaf) {
 							const state = (activeLeaf as any).getViewState();
 							const view = (activeLeaf as any).view;
-							console.log('DBGCLEAN9X7: file-open event for base file:', file.path);
-							console.log('DBGCLEAN9X7: leaf view state:', JSON.stringify(state, null, 2));
-							console.log('DBGCLEAN9X7: leaf.view:', view);
-							console.log('DBGCLEAN9X7: leaf.view.getState():', view?.getState ? view.getState() : 'no getState');
 						}
 					}, 100);
 				}
@@ -78,28 +74,29 @@ export default class BaselinksPlugin extends Plugin {
 	}
 
 	private scheduleUpdate() {
-		// Prevent updates while we're already updating
-		if (this.isUpdating || this.updateScheduled) {
-			console.log('DBGCLEAN9X7: skipping scheduleUpdate - already updating or scheduled');
-			return;
-		}
-
 		// Check if the active leaf is one of our managed leaves - if so, ignore
 		const activeLeaf = this.app.workspace.activeLeaf;
 		if (activeLeaf && this.managedLeaves.includes(activeLeaf)) {
-			console.log('DBGCLEAN9X7: skipping scheduleUpdate - active leaf is a managed baselink leaf');
 			return;
 		}
 
-		this.updateScheduled = true;
-		setTimeout(() => {
-			this.updateScheduled = false;
+		// If already updating, don't schedule - the current update will handle it
+		if (this.isUpdating) {
+			return;
+		}
+
+		// Debounce: clear existing timeout and set a new one
+		if (this.updateTimeout) {
+			clearTimeout(this.updateTimeout);
+		}
+
+		this.updateTimeout = setTimeout(() => {
+			this.updateTimeout = null;
 			this.updateBaselinks();
-		}, 100);
+		}, 50);
 	}
 
 	private clearManagedLeaves() {
-		console.log('DBGCLEAN9X7: clearing', this.managedLeaves.length, 'managed leaves');
 		for (const leaf of this.managedLeaves) {
 			leaf.detach();
 		}
@@ -107,18 +104,18 @@ export default class BaselinksPlugin extends Plugin {
 	}
 
 	private async updateBaselinks() {
-		console.log('DBGCLEAN9X7: updateBaselinks called');
 
 		if (this.isUpdating) {
-			console.log('DBGCLEAN9X7: already updating, skipping');
 			return;
 		}
 
 		this.isUpdating = true;
 
+		// Store the currently active leaf to restore focus later
+		const originalActiveLeaf = this.app.workspace.activeLeaf;
+
 		try {
 			const activeFile = this.app.workspace.getActiveFile();
-			console.log('DBGCLEAN9X7: activeFile:', activeFile?.path);
 
 			let baselinks: string[] = [];
 
@@ -128,15 +125,12 @@ export default class BaselinksPlugin extends Plugin {
 
 			// Use default baselinks if none found
 			if (baselinks.length === 0) {
-				console.log('DBGCLEAN9X7: using default baselinks:', this.settings.defaultBaselinks);
 				baselinks = this.settings.defaultBaselinks;
 			}
 
-			console.log('DBGCLEAN9X7: baselinks to display:', baselinks);
 
 			// Check if baselinks actually changed
 			if (this.arraysEqual(this.currentBaselinks, baselinks)) {
-				console.log('DBGCLEAN9X7: baselinks unchanged, skipping update');
 				return;
 			}
 
@@ -147,7 +141,6 @@ export default class BaselinksPlugin extends Plugin {
 			this.clearManagedLeaves();
 
 			if (baselinks.length === 0) {
-				console.log('DBGCLEAN9X7: no baselinks to display');
 				return;
 			}
 
@@ -156,17 +149,14 @@ export default class BaselinksPlugin extends Plugin {
 
 			for (let i = 0; i < baselinks.length; i++) {
 				const link = baselinks[i];
-				console.log('DBGCLEAN9X7: opening link:', link);
 
 				// Parse the link
 				const linkMatch = link.match(/\[\[([^\]]+)\]\]/);
 				if (!linkMatch) {
-					console.log('DBGCLEAN9X7: invalid link format:', link);
 					continue;
 				}
 
 				const linkPath = linkMatch[1];
-				console.log('DBGCLEAN9X7: parsed link path:', linkPath);
 
 				// Parse the file path and subpath (e.g., "tasks.base#In-Progress")
 				const [filePath, subpath] = linkPath.split('#');
@@ -174,36 +164,29 @@ export default class BaselinksPlugin extends Plugin {
 				// Get the file
 				const file = this.app.metadataCache.getFirstLinkpathDest(filePath, '');
 				if (!file) {
-					console.log('DBGCLEAN9X7: file not found:', filePath);
 					continue;
 				}
 
-				console.log('DBGCLEAN9X7: found file:', file.path, 'subpath:', subpath);
 
 				let leaf: WorkspaceLeaf | null;
 
 				if (i === 0) {
 					// First baselink: get a leaf in the right sidebar
 					leaf = this.app.workspace.getRightLeaf(false);
-					console.log('DBGCLEAN9X7: got first right leaf');
 				} else {
 					// Subsequent baselinks: split vertically from the previous leaf
 					const parent = previousLeaf!.parent;
-					console.log('DBGCLEAN9X7: splitting from parent:', parent);
 
 					if (!parent) {
-						console.log('DBGCLEAN9X7: no parent, using getRightLeaf');
 						leaf = this.app.workspace.getRightLeaf(false);
 					} else {
 						// Create a horizontal split (which stacks vertically in Obsidian)
 						// Obsidian's naming is counterintuitive: 'horizontal' = stacked vertically
 						leaf = this.app.workspace.createLeafBySplit(parent as WorkspaceLeaf, 'horizontal');
-						console.log('DBGCLEAN9X7: created horizontal split leaf (stacked)');
 					}
 				}
 
 				if (!leaf) {
-					console.log('DBGCLEAN9X7: could not create leaf');
 					continue;
 				}
 
@@ -211,7 +194,6 @@ export default class BaselinksPlugin extends Plugin {
 				previousLeaf = leaf;
 
 				// Open the file with proper state for subpath
-				console.log('DBGCLEAN9X7: opening file:', file.path, 'with subpath:', subpath);
 
 				const openState: OpenViewState = {};
 
@@ -220,21 +202,20 @@ export default class BaselinksPlugin extends Plugin {
 					openState.state = { viewName: subpath };
 				}
 
-				console.log('DBGCLEAN9X7: openFile with state:', openState);
 				await leaf.openFile(file, openState);
-				console.log('DBGCLEAN9X7: openFile completed');
 
-				// Reveal the first leaf
+				// Reveal the first leaf (but don't focus it)
 				if (i === 0) {
 					this.app.workspace.revealLeaf(leaf);
 				}
 			}
+
+			// Restore focus to the original active leaf
+			if (originalActiveLeaf && !this.managedLeaves.includes(originalActiveLeaf)) {
+				this.app.workspace.setActiveLeaf(originalActiveLeaf, { focus: true });
+			}
 		} finally {
-			// Add a cooldown period after updating to let all async operations settle
-			setTimeout(() => {
-				this.isUpdating = false;
-				console.log('DBGCLEAN9X7: isUpdating set to false after cooldown');
-			}, 200);
+			this.isUpdating = false;
 		}
 	}
 
@@ -247,33 +228,25 @@ export default class BaselinksPlugin extends Plugin {
 	}
 
 	private getBaselinksFromFile(file: TFile): string[] {
-		console.log('DBGCLEAN9X7: getBaselinksFromFile for:', file.path);
 		const cache = this.app.metadataCache.getFileCache(file);
-		console.log('DBGCLEAN9X7: cache frontmatter:', cache?.frontmatter);
 		if (!cache?.frontmatter) {
-			console.log('DBGCLEAN9X7: no frontmatter found');
 			return [];
 		}
 
 		const propertyValue = cache.frontmatter[this.settings.baselinkPropertyName];
-		console.log('DBGCLEAN9X7: property', this.settings.baselinkPropertyName, '=', propertyValue);
 
 		if (!propertyValue) {
-			console.log('DBGCLEAN9X7: property value is empty');
 			return [];
 		}
 
 		// Handle both string and array values
 		if (Array.isArray(propertyValue)) {
 			const result = propertyValue.filter(v => typeof v === 'string');
-			console.log('DBGCLEAN9X7: returning array:', result);
 			return result;
 		} else if (typeof propertyValue === 'string') {
-			console.log('DBGCLEAN9X7: returning single string:', [propertyValue]);
 			return [propertyValue];
 		}
 
-		console.log('DBGCLEAN9X7: property value is not string or array');
 		return [];
 	}
 
